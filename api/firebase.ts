@@ -1,29 +1,32 @@
 import { initializeApp } from 'firebase/app';
 import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager } from 'firebase/firestore';
 import { getAuth } from 'firebase/auth';
+import { getFunctions, httpsCallable } from 'firebase/functions'; // Importar funções do Firebase
 
 // Your web app's Firebase configuration
 const firebaseConfig = {
-  apiKey: "AIzaSyCECBR1DtgKsr26Fsp1m2gqZGlAOMsUMcY",
-  authDomain: "sistema-de-gestao-de-ativos.firebaseapp.com",
-  projectId: "sistema-de-gestao-de-ativos",
-  storageBucket: "sistema-de-gestao-de-ativos.appspot.com",
-  messagingSenderId: "178570353251",
-  appId: "1:178570353251:web:6a4b4801d896e0bc7c7656"
+  apiKey: import.meta.env.VITE_API_KEY,
+  authDomain: import.meta.env.VITE_AUTH_DOMAIN,
+  projectId: import.meta.env.VITE_PROJECT_ID,
+  storageBucket: import.meta.env.VITE_STORAGE_BUCKET,
+  messagingSenderId: import.meta.env.VITE_MESSAGING_SENDER_ID,
+  appId: import.meta.env.VITE_APP_ID
 };
 
 
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
 
-// Initialize Cloud Firestore and get a reference to the service
-// Use the new modular API to enable multi-tab persistence which is recommended over enableIndexedDbPersistence
 const db = initializeFirestore(app, {
   localCache: persistentLocalCache({tabManager: persistentMultipleTabManager()})
 });
 
-
-// Initialize Firebase Authentication
 const auth = getAuth(app);
+const functions = getFunctions(app, 'southamerica-east1'); // Especifique a região, se necessário
 
-export { db, auth };
+// Create a callable function reference
+const createCallable = (functionName: string) => {
+    return httpsCallable(functions, functionName);
+};
+
+export { db, auth, createCallable };

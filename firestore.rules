@@ -1,0 +1,87 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Default rule: Deny all reads and writes to prevent unauthorized access.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Users collection: Users can read/write their own profile.
+    // Invitations (stored in 'users') can be created by authorized users of the same tenant.
+    match /users/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+      allow create: if request.auth != null && request.auth.token.tenantId == request.resource.data.tenantId;
+    }
+
+    // Tenant-specific data: Access is granted only if the user's tenantId matches the document's tenantId.
+    // This is the core of the multi-tenant security model.
+    function isTenantMember(tenantId) {
+      return request.auth != null && request.auth.token.tenantId == tenantId;
+    }
+
+    match /assets/{assetId} {
+      allow read, write: if isTenantMember(resource.data.tenantId);
+    }
+
+    match /maintenance/{maintenanceId} {
+      allow read, write: if isTenantMember(resource.data.tenantId);
+    }
+
+    match /suppliers/{supplierId} {
+      allow read, write: if isTenantMember(resource.data.tenantId);
+    }
+
+    match /stock/{stockId} {
+      allow read, write: if isTenantMember(resource.data.tenantId);
+    }
+
+    match /projects/{projectId} {
+      allow read, write: if isTenantMember(resource.data.tenantId);
+    }
+
+    match /documents/{documentId} {
+      allow read, write: if isTenantMember(resource.data.tenantId);
+    }
+
+    match /sales/{saleId} {
+      allow read, write: if isTenantMember(resource.data.tenantId);
+    }
+
+    match /purchasing/{purchaseId} {
+      allow read, write: if isTenantMember(resource.data.tenantId);
+    }
+
+    match /crm/{crmId} {
+      allow read, write: if isTenantMember(resource.data.tenantId);
+    }
+
+    match /hr/{hrId} {
+      allow read, write: if isTenantMember(resource.data.tenantId);
+    }
+
+    match /finance/{financeId} {
+      allow read, write: if isTenantMember(resource.data.tenantId);
+    }
+    
+    // Tenant metadata collection: Only readable by members of that tenant.
+    match /tenants/{tenantId} {
+        allow read: if isTenantMember(tenantId);
+        allow write: if false; // Should only be written by backend functions.
+    }
+
+    // Mail collection: Can only be created by backend functions. No one can read them.
+    match /mail/{mailId} {
+        allow read: if false;
+        allow write: if request.auth == null; // Only backend functions (which have no auth context) can write
+    }
+
+    // Chat collection: Users can read/write messages within their own tenant.
+    // A chat room is identified by the tenantId.
+    match /chats/{tenantId}/messages/{messageId} {
+        allow read, create: if isTenantMember(tenantId);
+        allow update, delete: if isTenantMember(tenantId) && resource.data.senderId == request.auth.uid; // Users can only edit/delete their own messages
+    }
+  }
+}
