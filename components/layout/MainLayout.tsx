@@ -1,5 +1,5 @@
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import Layout from './Layout';
 import DashboardPage from '../../pages/DashboardPage';
 import AssetsPage from '../../pages/AssetsPage';
@@ -16,69 +16,91 @@ import ProjectsPage from '../../pages/ProjectsPage';
 import HRPage from '../../pages/HumanResourcesPage';
 import FiscalPage from '../../pages/FiscalPage';
 import SalesPage from '../../pages/SalesPage';
+import StockReconciliationPage from '../../pages/StockReconciliationPage';
+import MapPage from '../../pages/MapPage';
+import ReportsPage from '../../pages/ReportsPage';
 import { useAuth } from '../../hooks/useAuth';
 import { useApp } from '../../hooks/useApp';
 import { getExpiringItems } from '../../utils/notificationUtils';
+import * as ds from '../../styles/designSystem';
 
-export type Page = 'dashboard' | 'assets' | 'maintenance' | 'settings' | 'suppliers' | 'stock' | 'financial' | 'documents' | 'purchasing' | 'users' | 'crm' | 'projects' | 'hr' | 'fiscal' | 'sales';
+export type Page = 
+  | 'dashboard' | 'assets' | 'maintenance' | 'settings' | 'suppliers' 
+  | 'stock' | 'financial' | 'documents' | 'purchasing' | 'users' 
+  | 'crm' | 'projects' | 'hr' | 'fiscal' | 'sales' 
+  | 'stockReconciliation' | 'map' | 'reports';
+
+// --- CONFIGURAÇÃO CENTRALIZADA DE PÁGINAS ---
+const pageConfig: Record<Page, { component: React.ComponentType<any>; title: string }> = {
+  dashboard: { component: DashboardPage, title: 'Visão Geral & BI' },
+  assets: { component: AssetsPage, title: 'Gestão de Ativos' },
+  maintenance: { component: MaintenancePage, title: 'Manutenção & Predição' },
+  settings: { component: SettingsPage, title: 'Configurações do Sistema' },
+  suppliers: { component: SuppliersPage, title: 'Gestão de Fornecedores' },
+  stock: { component: StockPage, title: 'Controle de Estoque' },
+  purchasing: { component: PurchasingPage, title: 'Gestão de Compras' },
+  financial: { component: FinancialPage, title: 'Gestão Financeira' },
+  documents: { component: DocumentsPage, title: 'Documentos Corporativos' },
+  users: { component: UsersPage, title: 'Usuários & Permissões' },
+  crm: { component: CRMPage, title: 'CRM & Pipeline de Vendas' },
+  projects: { component: ProjectsPage, title: 'Gestão de Projetos' },
+  hr: { component: HRPage, title: 'Recursos Humanos' },
+  fiscal: { component: FiscalPage, title: 'Módulo Fiscal & Tributário' },
+  sales: { component: SalesPage, title: 'Pedidos de Venda' },
+  stockReconciliation: { component: StockReconciliationPage, title: 'Reconciliação de Estoque' },
+  map: { component: MapPage, title: 'Mapa de Ativos' },
+  reports: { component: ReportsPage, title: 'Relatórios Gerenciais' },
+};
 
 const MainLayout: React.FC = () => {
   const [currentPage, setCurrentPage] = useState<Page>('dashboard');
+  const [isTransitioning, setIsTransitioning] = useState(false);
   const { logOut } = useAuth();
   const { assets, stockItems } = useApp();
 
   const notifications = useMemo(() => {
-    return getExpiringItems(assets, 30);
+    return getExpiringItems(assets, 30); // Exemplo de notificação
   }, [assets, stockItems]);
 
-  const pageTitles: Record<Page, string> = {
-    dashboard: 'Visão Geral & BI',
-    assets: 'Gestão de Ativos',
-    maintenance: 'Manutenção & Predição',
-    settings: 'Configurações do Sistema',
-    suppliers: 'Gestão de Fornecedores',
-    stock: 'Controle de Estoque',
-    purchasing: 'Gestão de Compras',
-    financial: 'Gestão Financeira',
-    documents: 'Documentos Corporativos',
-    users: 'Usuários & Permissões',
-    crm: 'CRM & Pipeline',
-    projects: 'Gestão de Projetos',
-    hr: 'Recursos Humanos',
-    fiscal: 'Fiscal & Tributário',
-    sales: 'Pedidos de Venda'
+  // --- LÓGICA DE TRANSIÇÃO DE PÁGINA ---
+  const handleSetPage = (page: Page) => {
+    if (page === currentPage) return;
+
+    setIsTransitioning(true);
+    setTimeout(() => {
+      setCurrentPage(page);
+      // O ideal é que o próprio componente de página gerencie seu estado de "fadeIn"
+      // Mas para simplificar, faremos o fadeIn após o render
+    }, 150); // Duração do fade-out
   };
 
-  const renderPage = () => {
-    switch (currentPage) {
-      case 'dashboard': return <DashboardPage />;
-      case 'assets': return <AssetsPage />;
-      case 'maintenance': return <MaintenancePage />;
-      case 'settings': return <SettingsPage />;
-      case 'suppliers': return <SuppliersPage />;
-      case 'stock': return <StockPage setCurrentPage={(p: any) => setCurrentPage(p)} />; // StockPage might request stockReconciliation locally or modal
-      case 'purchasing': return <PurchasingPage />;
-      case 'financial': return <FinancialPage />;
-      case 'documents': return <DocumentsPage />;
-      case 'users': return <UsersPage />;
-      case 'crm': return <CRMPage />;
-      case 'projects': return <ProjectsPage />;
-      case 'hr': return <HRPage />;
-      case 'fiscal': return <FiscalPage />;
-      case 'sales': return <SalesPage />;
-      default: return <DashboardPage />;
+  useEffect(() => {
+    if (isTransitioning) {
+      setTimeout(() => {
+        setIsTransitioning(false);
+      }, 150); // Duração do fade-in
     }
+  }, [currentPage]);
+
+  const PageComponent = pageConfig[currentPage].component;
+  const pageTitle = pageConfig[currentPage].title;
+
+  const pageStyle: React.CSSProperties = {
+    transition: 'opacity 150ms ease-in-out',
+    opacity: isTransitioning ? 0 : 1,
   };
 
   return (
     <Layout
       currentPage={currentPage}
-      setCurrentPage={setCurrentPage}
+      setCurrentPage={handleSetPage}
       onLogout={logOut}
       notifications={notifications}
-      pageTitle={pageTitles[currentPage]}
+      pageTitle={pageTitle}
     >
-      {renderPage()}
+      <div style={pageStyle}>
+        <PageComponent setCurrentPage={handleSetPage} />
+      </div>
     </Layout>
   );
 };

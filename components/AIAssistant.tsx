@@ -1,10 +1,11 @@
 
-
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Asset } from '../types';
-// FIX: The geminiService file was moved to the 'api' directory. Updating the import path.
 import { getAIInsight } from '../api/geminiService';
 import { SparklesIcon, SendIcon } from './icons';
+import * as ds from '../styles/designSystem';
+
+type Style = React.CSSProperties;
 
 interface AIAssistantProps {
   assets: Asset[];
@@ -47,55 +48,111 @@ const AIAssistant: React.FC<AIAssistantProps> = ({ assets }) => {
     "Liste os ativos ociosos."
   ];
 
+  const styles: { [key: string]: Style } = useMemo(() => ({
+    container: {
+        ...ds.componentStyles.card,
+        backgroundColor: ds.colors.dark.card,
+        height: '400px',
+        display: 'flex',
+        flexDirection: 'column',
+        border: `1px solid ${ds.colors.dark.border}`,
+    },
+    header: { display: 'flex', alignItems: 'center', marginBottom: ds.spacing[4] },
+    title: { fontSize: ds.typography.fontSizes.lg, fontWeight: ds.typography.fontWeights.semibold, color: ds.colors.dark.text_primary, marginLeft: ds.spacing[3] },
+    inputWrapper: { position: 'relative', display: 'flex', alignItems: 'center', marginBottom: ds.spacing[4] },
+    input: {
+        ...ds.componentStyles.input,
+        backgroundColor: ds.colors.dark.background,
+        color: ds.colors.dark.text_primary,
+        width: '100%',
+        paddingRight: ds.spacing[12],
+        border: `1px solid ${ds.colors.dark.border}`,
+    },
+    sendButton: {
+        position: 'absolute',
+        right: ds.spacing[2],
+        height: '36px',
+        width: '36px',
+        borderRadius: ds.borders.radius.md,
+        background: ds.colors.primary.main,
+        color: ds.colors.primary.contrastText,
+        border: 'none',
+        cursor: 'pointer',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        transition: 'background-color 0.2s ease',
+    },
+    contentArea: { flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center' },
+    loadingContainer: { display: 'flex', alignItems: 'center', justifyContent: 'center', color: ds.colors.dark.text_secondary },
+    spinner: { width: ds.spacing[6], height: ds.spacing[6], borderTop: `2px solid ${ds.colors.primary.main}`, borderRight: `2px solid ${ds.colors.primary.main}`, borderBottom: '2px solid transparent', borderLeft: '2px solid transparent', borderRadius: '50%', animation: 'spin 1s linear infinite', marginRight: ds.spacing[3] },
+    errorText: { color: ds.colors.error.main, textAlign: 'center' },
+    responseContainer: { backgroundColor: ds.colors.dark.background, borderRadius: ds.borders.radius.md, padding: ds.spacing[4], color: ds.colors.dark.text_secondary, fontSize: ds.typography.fontSizes.sm, whiteSpace: 'pre-wrap', maxHeight: '220px', overflowY: 'auto' },
+    sampleQueriesContainer: { textAlign: 'center', color: ds.colors.dark.text_secondary },
+    sampleQueriesGrid: { display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: ds.spacing[2], marginTop: ds.spacing[3] },
+    sampleQueryButton: {
+        background: ds.colors.dark.background,
+        border: `1px solid ${ds.colors.dark.border}`,
+        color: ds.colors.dark.text_secondary,
+        padding: `${ds.spacing[2]} ${ds.spacing[3]}`,
+        borderRadius: ds.borders.radius.full,
+        cursor: 'pointer',
+        fontSize: ds.typography.fontSizes.xs,
+        transition: 'all 0.2s ease',
+    },
+  }), [ds]);
+
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
-      <div className="flex items-center mb-4">
-        <SparklesIcon className="w-6 h-6 text-primary-500 mr-3" />
-        <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Assistente Inteligente SGA</h3>
+    <div style={styles.container}>
+      <div style={styles.header}>
+        <SparklesIcon style={{ width: 24, height: 24, color: ds.colors.primary.main }} />
+        <h3 style={styles.title}>Assistente Inteligente SGA</h3>
       </div>
 
-      <div className="relative flex items-center mb-4">
+      <div style={styles.inputWrapper}>
         <input
           type="text"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           onKeyDown={handleKeyDown}
           placeholder="Pergunte sobre seus ativos..."
-          className="w-full p-3 pr-12 text-gray-900 border border-gray-300 rounded-lg bg-gray-50 focus:ring-primary-500 focus:border-primary-500 dark:bg-gray-700 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white dark:focus:ring-primary-500 dark:focus:border-primary-500"
+          style={styles.input}
           disabled={isLoading}
         />
         <button
           onClick={handleQuery}
           disabled={isLoading}
-          className="absolute right-2.5 bottom-2.5 bg-primary-600 hover:bg-primary-700 focus:ring-4 focus:outline-none focus:ring-primary-300 font-medium rounded-lg text-sm px-3 py-2 text-white dark:bg-primary-600 dark:hover:bg-primary-700 dark:focus:ring-primary-800 disabled:opacity-50"
+          style={{ ...styles.sendButton, opacity: isLoading ? 0.5 : 1 }}
         >
-          <SendIcon className="w-4 h-4" />
+          <SendIcon style={{ width: 16, height: 16 }} />
         </button>
       </div>
       
-      {isLoading ? (
-        <div className="flex items-center justify-center p-4">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-500"></div>
-          <p className="ml-3 text-gray-600 dark:text-gray-300">Analisando dados...</p>
-        </div>
-      ) : error ? (
-        <p className="text-red-500">{error}</p>
-      ) : response ? (
-        <div className="mt-4 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
-            <p className="text-gray-800 dark:text-gray-200 whitespace-pre-wrap">{response}</p>
-        </div>
-      ) : (
-        <div className="mt-4 text-center text-gray-500 dark:text-gray-400">
-            <p className="mb-2">Experimente uma destas perguntas:</p>
-            <div className="flex flex-wrap justify-center gap-2">
-                {sampleQueries.map(q => (
-                    <button key={q} onClick={() => setQuery(q)} className="text-xs bg-gray-200 dark:bg-gray-700 px-3 py-1 rounded-full hover:bg-primary-100 dark:hover:bg-primary-900">
-                        {q}
-                    </button>
-                ))}
-            </div>
-        </div>
-      )}
+      <div style={styles.contentArea}>
+        {isLoading ? (
+          <div style={styles.loadingContainer}>
+            <div style={styles.spinner}></div>
+            <span>Analisando dados...</span>
+          </div>
+        ) : error ? (
+          <p style={styles.errorText}>{error}</p>
+        ) : response ? (
+          <div style={styles.responseContainer}>
+              <p>{response}</p>
+          </div>
+        ) : (
+          <div style={styles.sampleQueriesContainer}>
+              <p style={{ fontSize: ds.typography.fontSizes.sm }}>Experimente uma destas perguntas:</p>
+              <div style={styles.sampleQueriesGrid}>
+                  {sampleQueries.map(q => (
+                      <button key={q} onClick={() => setQuery(q)} style={styles.sampleQueryButton}>
+                          {q}
+                      </button>
+                  ))}
+              </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 };

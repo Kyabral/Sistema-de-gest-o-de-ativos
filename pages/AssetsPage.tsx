@@ -3,26 +3,36 @@ import React, { useState, useMemo } from 'react';
 import { Asset, NewAssetData, AssetStatus } from '../types';
 import { useApp } from '../hooks/useApp';
 import { useSort } from '../hooks/useSort';
+import { useBranding } from '../hooks/useBranding';
+import * as ds from '../styles/designSystem';
+import { exportAssetsToCSV } from '../utils/csvExporter';
+import { calculateAssetHealth } from '../utils/assetUtils';
+
+// Novos componentes de UI
+import Card from '../components/common/Card';
+import Button from '../components/common/Button';
+import Input from '../components/common/Input';
+import Select from '../components/common/Select';
+import SegmentedControl from '../components/common/SegmentedControl';
+import { PlusIcon, ArrowDownTrayIcon, MapPinIcon, ListBulletIcon } from '../components/common/icons';
+
+// Componentes específicos da página (ainda não refatorados)
 import AssetTable from '../components/assets/AssetTable';
 import AddAssetModal from '../components/assets/AddAssetModal';
 import EditAssetModal from '../components/assets/EditAssetModal';
 import AddMaintenanceModal from '../components/assets/AddMaintenanceModal';
 import ConfirmationModal from '../components/common/ConfirmationModal';
-import { PlusIcon, ArrowDownTrayIcon, MapPinIcon, ListBulletIcon } from '../components/common/icons';
-import { exportAssetsToCSV } from '../utils/csvExporter';
-import { calculateAssetHealth } from '../utils/assetUtils';
-import { useBranding } from '../hooks/useBranding';
+
+// Mapa (Leaflet)
 import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
 
 type SortableKeys = 'name' | 'purchaseDate' | 'healthScore';
 type ViewMode = 'list' | 'map';
+type Style = React.CSSProperties;
 
 const AssetsPage: React.FC = () => {
-    const { 
-        assets, suppliers, 
-        addAsset, updateAsset, deleteAsset, addMaintenance, 
-        isLoading, error
-    } = useApp();
+    // Hooks e estado permanecem os mesmos
+    const { assets, suppliers, addAsset, updateAsset, deleteAsset, addMaintenance, isLoading, error } = useApp();
     const { branding } = useBranding();
     
     const [viewMode, setViewMode] = useState<ViewMode>('list');
@@ -42,51 +52,23 @@ const AssetsPage: React.FC = () => {
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage] = useState(10);
 
-    const enrichedAssets = useMemo(() => assets.map(asset => ({
-        ...asset,
-        healthScore: calculateAssetHealth(asset),
-    })), [assets]);
-
-    const filteredAssets = useMemo(() => {
-        const keywords = searchQuery.toLowerCase().split(' ').filter(kw => kw.trim() !== '');
-        return enrichedAssets.filter(asset => {
-            const byStatus = statusFilter ? asset.status === statusFilter : true;
-            const byType = typeFilter ? asset.type === typeFilter : true;
-            const bySupplier = supplierFilter ? asset.supplierId === supplierFilter : true;
-            const bySearch = searchQuery
-                ? keywords.every(keyword => `${asset.name} ${asset.type} ${asset.location}`.toLowerCase().includes(keyword))
-                : true;
-            return byStatus && byType && bySearch && bySupplier;
-        });
-    }, [enrichedAssets, statusFilter, typeFilter, searchQuery, supplierFilter]);
-    
+    // Lógica de dados permanece a mesma
+    const enrichedAssets = useMemo(() => assets.map(asset => ({ ...asset, healthScore: calculateAssetHealth(asset), searchableString: `${asset.name} ${asset.type} ${asset.location}`.toLowerCase() })), [assets]);
+    const filteredAssets = useMemo(() => enrichedAssets.filter(asset => 
+        (statusFilter ? asset.status === statusFilter : true) &&
+        (typeFilter ? asset.type === typeFilter : true) &&
+        (supplierFilter ? asset.supplierId === supplierFilter : true) &&
+        (searchQuery ? searchQuery.toLowerCase().split(' ').filter(kw => kw.trim() !== '').every(keyword => asset.searchableString.includes(keyword)) : true)
+    ), [enrichedAssets, statusFilter, typeFilter, searchQuery, supplierFilter]);
     const { sortedItems: sortedAssets, requestSort, sortConfig } = useSort<Asset, SortableKeys>(filteredAssets, 'purchaseDate');
-
-    const indexOfLastItem = currentPage * itemsPerPage;
-    const indexOfFirstItem = indexOfLastItem - itemsPerPage;
-    const currentAssets = sortedAssets.slice(indexOfFirstItem, indexOfLastItem);
+    const currentAssets = sortedAssets.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
     const totalPages = Math.ceil(sortedAssets.length / itemsPerPage);
-
-    const paginate = (pageNumber: number) => {
-        if (pageNumber > 0 && pageNumber <= totalPages) setCurrentPage(pageNumber);
-    };
-
     const uniqueAssetTypes = useMemo(() => Array.from(new Set(assets.map(a => a.type))).sort(), [assets]);
-
     const mapCenter: [number, number] = useMemo(() => {
         const withCoords = assets.filter(a => a.coordinates?.lat);
         if (withCoords.length > 0) return [withCoords[0].coordinates!.lat, withCoords[0].coordinates!.lng];
-        return [-23.55052, -46.633308];
+        return [-23.55052, -46.633308]; // Default a São Paulo
     }, [assets]);
-
-    const getStatusColor = (status: AssetStatus) => {
-        switch (status) {
-            case AssetStatus.ACTIVE: return 'text-green-600';
-            case AssetStatus.IN_REPAIR: return 'text-orange-600';
-            case AssetStatus.DECOMMISSIONED: return 'text-slate-600';
-            default: return 'text-gray-600';
-        }
-    }
 
     const confirmDelete = async () => {
         if (assetToDelete) {
@@ -95,37 +77,58 @@ const AssetsPage: React.FC = () => {
             setAssetToDelete(null);
         }
     };
+    
+    // Estilos do DS
+    const styles: { [key: string]: Style } = {
+        page: { padding: `${ds.spacing[4]} ${ds.spacing[8]}`, display: 'flex', flexDirection: 'column', gap: ds.spacing[6] },
+        header: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: ds.spacing[4] },
+        title: { fontSize: ds.typography.fontSizes['2xl'], fontWeight: ds.typography.fontWeights.bold, color: ds.colors.dark.text_primary },
+        subtitle: { color: ds.colors.dark.text_secondary, marginTop: ds.spacing[1] },
+        actions: { display: 'flex', alignItems: 'center', gap: ds.spacing[3] },
+        filterBar: { display: 'grid', gridTemplateColumns: 'repeat(1, 1fr) sm:repeat(2, 1fr) lg:repeat(4, 1fr)', gap: ds.spacing[4], marginBottom: ds.spacing[6] },
+        loadingContainer: { display: 'flex', justifyContent: 'center', alignItems: 'center', height: '300px' },
+        spinner: { width: ds.spacing[12], height: ds.spacing[12], borderTop: `2px solid ${ds.colors.primary.main}`, borderRight: `2px solid ${ds.colors.primary.main}`, borderBottom: '2px solid transparent', borderLeft: '2px solid transparent', borderRadius: '50%', animation: 'spin 1s linear infinite' },
+        error: { backgroundColor: ds.colors.error.light, borderLeft: `4px solid ${ds.colors.error.main}`, color: ds.colors.error.main, padding: ds.spacing[4] },
+        mapCard: { height: 'calc(100vh - 300px)', padding: ds.spacing[2] },
+        mapPopup: { padding: ds.spacing[1], color: ds.colors.light.text_primary },
+        mapPopupTitle: { fontSize: ds.typography.fontSizes.md, fontWeight: ds.typography.fontWeights.bold, color: ds.colors.light.text_primary, marginBottom: ds.spacing[1] }
+    };
 
     return (
-        <div className="p-4 md:p-8 space-y-6">
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-                 <div>
-                    <h1 className="text-3xl font-bold text-gray-800 dark:text-white">Gestão de Ativos</h1>
-                    <p className="text-gray-500 dark:text-gray-400">Controle total do inventário físico e digital.</p>
+        <div style={styles.page}>
+            <div style={styles.header}>
+                <div>
+                    <h1 style={styles.title}>Gestão de Ativos</h1>
+                    <p style={styles.subtitle}>Controle total do inventário físico e digital.</p>
                 </div>
-                <div className="flex items-center space-x-2">
-                    <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-1 flex border dark:border-gray-700 mr-2">
-                        <button onClick={() => setViewMode('list')} className={`p-2 rounded-md ${viewMode === 'list' ? 'bg-gray-100 dark:bg-gray-700 text-primary-600' : 'text-gray-500'}`} title="Lista"><ListBulletIcon className="w-5 h-5"/></button>
-                        <button onClick={() => setViewMode('map')} className={`p-2 rounded-md ${viewMode === 'map' ? 'bg-gray-100 dark:bg-gray-700 text-primary-600' : 'text-gray-500'}`} title="Mapa"><MapPinIcon className="w-5 h-5"/></button>
-                    </div>
-                    <button onClick={() => exportAssetsToCSV(sortedAssets, branding)} className="btn btn-secondary"><ArrowDownTrayIcon className="w-5 h-5 mr-2" />CSV</button>
-                    <button onClick={() => setIsAddModalOpen(true)} className="btn btn-primary"><PlusIcon className="w-5 h-5 mr-2" />Novo Ativo</button>
+                <div style={styles.actions}>
+                    <SegmentedControl<ViewMode>
+                        name="viewMode"
+                        selectedValue={viewMode}
+                        onValueChange={setViewMode}
+                        options={[
+                            { value: 'list', label: <ListBulletIcon style={{width:20, height:20}}/> },
+                            { value: 'map', label: <MapPinIcon style={{width:20, height:20}}/> },
+                        ]}
+                    />
+                    <Button variant="secondary" icon={<ArrowDownTrayIcon style={{width:20, height:20}} />} onClick={() => exportAssetsToCSV(sortedAssets, branding)}>CSV</Button>
+                    <Button variant="primary" icon={<PlusIcon style={{width:20, height:20}} />} onClick={() => setIsAddModalOpen(true)}>Novo Ativo</Button>
                 </div>
             </div>
             
-             {error && <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4" role="alert"><p>{error}</p></div>}
+            {error && <div style={styles.error} role="alert"><p>{error}</p></div>}
             
             {isLoading ? (
-                 <div className="flex justify-center items-center h-64"><div className="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-primary-500"></div></div>
+                <div style={styles.loadingContainer}><div style={styles.spinner}></div></div>
             ) : (
                 <>
                     {viewMode === 'list' ? (
-                        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
-                             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-                                <div className="lg:col-span-1"><input type="text" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="input-style w-full" placeholder="Buscar ativo..." /></div>
-                                <div><select value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)} className="input-style w-full"><option value="">Todos os Tipos</option>{uniqueAssetTypes.map(t => <option key={t} value={t}>{t}</option>)}</select></div>
-                                <div><select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="input-style w-full"><option value="">Todos os Status</option>{Object.values(AssetStatus).map(s => <option key={s} value={s}>{s}</option>)}</select></div>
-                                <div><select value={supplierFilter} onChange={(e) => setSupplierFilter(e.target.value)} className="input-style w-full"><option value="">Todos Fornecedores</option>{suppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}</select></div>
+                        <Card>
+                            <div style={styles.filterBar}>
+                                <Input value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} placeholder="Buscar ativo..." />
+                                <Select value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)}><option value="">Todos os Tipos</option>{uniqueAssetTypes.map(t => <option key={t} value={t}>{t}</option>)}</Select>
+                                <Select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}><option value="">Todos os Status</option>{Object.values(AssetStatus).map(s => <option key={s} value={s}>{s}</option>)}</Select>
+                                <Select value={supplierFilter} onChange={(e) => setSupplierFilter(e.target.value)}><option value="">Todos Fornecedores</option>{suppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}</Select>
                             </div>
                             <AssetTable
                                 assets={currentAssets}
@@ -134,37 +137,38 @@ const AssetsPage: React.FC = () => {
                                 onDelete={(id) => {setAssetToDelete(id); setIsDeleteModalOpen(true)}}
                                 requestSort={requestSort}
                                 sortConfig={sortConfig}
-                                pagination={{ itemsPerPage, totalItems: sortedAssets.length, currentPage, paginate }}
+                                pagination={{ itemsPerPage, totalItems: sortedAssets.length, currentPage, paginate, totalPages }}
                             />
-                        </div>
+                        </Card>
                     ) : (
-                        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg h-[calc(100vh-250px)] p-4">
-                             <MapContainer center={mapCenter} zoom={13} scrollWheelZoom={true} style={{ height: '100%', width: '100%', borderRadius: '0.75rem' }}>
-                                <TileLayer attribution='&copy; OpenStreetMap contributors' url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
+                        <Card style={styles.mapCard}>
+                            <MapContainer center={mapCenter} zoom={13} scrollWheelZoom={true} style={{ height: '100%', width: '100%', borderRadius: ds.borders.radius.lg }}>
+                                <TileLayer url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png" attribution='&copy; OpenStreetMap &copy; CartoDB' />
                                 {assets.filter(a => a.coordinates?.lat).map(asset => (
                                      <Marker key={asset.id} position={[asset.coordinates!.lat, asset.coordinates!.lng]}>
                                         <Popup>
-                                            <div className="p-1">
-                                                <h3 className="font-bold text-md mb-1 text-gray-800">{asset.name}</h3>
-                                                <p className="text-sm text-gray-600"><strong>Local:</strong> {asset.location}</p>
-                                                <p className="text-sm text-gray-600"><strong>Status:</strong> <span className={`font-semibold ${getStatusColor(asset.status)}`}>{asset.status}</span></p>
+                                            <div style={styles.mapPopup}>
+                                                <h3 style={styles.mapPopupTitle}>{asset.name}</h3>
+                                                <p><strong>Local:</strong> {asset.location}</p>
+                                                <p><strong>Status:</strong> <span style={{color: ds.getStatusColor(asset.status).main}}>{asset.status}</span></p>
                                             </div>
                                         </Popup>
                                     </Marker>
                                 ))}
                             </MapContainer>
-                        </div>
+                        </Card>
                     )}
                 </>
             )}
             
-            {isAddModalOpen && <AddAssetModal isOpen={isAddModalOpen} onClose={() => setIsAddModalOpen(false)} onSave={addAsset} />}
-            {isEditModalOpen && selectedAsset && <EditAssetModal isOpen={isEditModalOpen} onClose={() => setIsEditModalOpen(false)} onSave={updateAsset} asset={selectedAsset} />}
+            {isAddModalOpen && <AddAssetModal isOpen={isAddModalOpen} onClose={() => setIsAddModalOpen(false)} onSave={addAsset} suppliers={suppliers} />}
+            {isEditModalOpen && selectedAsset && <EditAssetModal isOpen={isEditModalOpen} onClose={() => setIsEditModalOpen(false)} onSave={updateAsset} asset={selectedAsset} suppliers={suppliers} />}
             {isMaintenanceModalOpen && selectedAsset && <AddMaintenanceModal isOpen={isMaintenanceModalOpen} onClose={() => setIsMaintenanceModalOpen(false)} onSave={addMaintenance} assetId={selectedAsset.id} />}
             {isDeleteModalOpen && <ConfirmationModal isOpen={isDeleteModalOpen} onClose={() => setIsDeleteModalOpen(false)} onConfirm={confirmDelete} title="Excluir Ativo" message="Esta ação não pode ser desfeita." />}
-             <style>{`.btn {display:inline-flex;align-items:center;justify-content:center;padding:0.5rem 1rem;font-weight:500;border-radius:0.5rem;}.btn-primary {background-color:rgb(var(--color-primary-600));color:#fff}.btn-secondary {background-color:#e5e7eb;color:#1f2937}.input-style{padding:0.5rem;border-radius:0.5rem;border:1px solid #d1d5db;background-color:#f9fafb}.dark .input-style{background-color:#374151;border-color:#4b5563;color:white}`}</style>
         </div>
     );
 };
 
 export default AssetsPage;
+
+

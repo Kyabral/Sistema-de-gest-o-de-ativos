@@ -14,19 +14,20 @@ import {
   QueryDocumentSnapshot,
   where,
   getDoc,
+  writeBatch
 } from 'firebase/firestore';
 import { db } from './firebase';
-import { StockItem, NewStockItemData, StockCount, NewStockCountData, MovementType, StockMovement, StockBatch } from '../types';
+import { StockItem, NewStockItemData, StockCount, NewStockCountData, MovementType, StockMovement, StockBatch, ReconciliationItem } from '../types';
 
 const stockCollectionRef = db ? collection(db, 'stock') : null;
 const stockCountsCollectionRef = db ? collection(db, 'stockCounts') : null;
 
 // --- Stock Items ---
 
-const fromFirestore = (docSnapshot: QueryDocumentSnapshot<DocumentData>): StockItem => {
-  const data = docSnapshot.data();
+const fromFirestore = (docSnapshot: QueryDocumentSnapshot<DocumentData> | DocumentData): StockItem => {
+  const data = 'data' in docSnapshot ? docSnapshot.data() : docSnapshot;
   return {
-    id: docSnapshot.id,
+    id: 'id' in docSnapshot ? docSnapshot.id : '',
     name: data.name,
     sku: data.sku,
     quantity: data.quantity,
@@ -296,4 +297,57 @@ export const addStockCount = async (tenantId: string, countData: Omit<NewStockCo
         tenantId,
         ...countData,
     };
+};
+
+export const reconcileStock = async (tenantId: string, countId: string, user: string): Promise<void> => {
+    if (!db) throw new Error("Firebase is not properly configured.");
+
+    const countDocRef = doc(db, 'stockCounts', countId);
+    const countSnap = await getDoc(countDocRef);
+
+    if (!countSnap.exists() || countSnap.data().tenantId !== tenantId) {
+        throw new Error("Contagem de estoque não encontrada ou permissão negada.");
+    }
+    if (countSnap.data().status === 'Finalizado') {
+        throw new Error("Esta contagem já foi finalizada e reconciliada.");
+    }
+
+    const countedItems: ReconciliationItem[] = countSnap.data().items;
+    const batch = writeBatch(db);
+
+    for (const countedItem of countedItems) {
+        const itemDocRef = doc(db, 'stock', countedItem.stockItemId);
+        const itemSnap = await getDoc(itemDocRef);
+
+        if (itemSnap.exists()) {
+            const systemItem = fromFirestore(itemSnap.data());
+            const systemQuantity = systemItem.quantity;
+            const variance = countedItem.countedQuantity - systemQuantity;
+
+            if (variance !== 0) {
+                const movementType: MovementType = variance > 0 ? 'AJUSTE_ENTRADA' : 'AJUSTE_SAIDA';
+                const movement: StockMovement = {
+                    id: `mov_${Date.now()}`,
+                    date: new Date().toISOString(),
+                    type: movementType,
+                    quantity: Math.abs(variance),
+                    user: user,
+                    reason: `Ajuste de inventário (Contagem #${countId})`,
+                };
+
+                const updatedHistory = [...systemItem.movementHistory, movement];
+                const newQuantity = systemQuantity + variance;
+
+                batch.update(itemDocRef, {
+                    quantity: newQuantity,
+                    movementHistory: updatedHistory,
+                    lastUpdated: serverTimestamp(),
+                });
+            }
+        }
+    }
+
+    batch.update(countDocRef, { status: 'Finalizado' });
+
+    await batch.commit();
 };

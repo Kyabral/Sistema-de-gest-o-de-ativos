@@ -1,3 +1,4 @@
+
 import {
   collection,
   getDocs,
@@ -15,6 +16,9 @@ import {
 } from 'firebase/firestore';
 import { db } from './firebase';
 import { User, BrandingSettings } from '../types';
+
+// Re-export mock functions for development
+export { getTenantBranding, updateTenantBranding } from './mock/brandingService';
 
 const usersCollectionRef = db ? collection(db, 'users') : null;
 
@@ -52,24 +56,19 @@ export const inviteUser = async (tenantId: string, userData: { name: string; ema
 export const updateUserRole = async (tenantId: string, { userId, role }: { userId: string, role: User['role'] }): Promise<void> => {
     if (!db) throw new Error("Firebase não configurado.");
     const userDocRef = doc(db, 'users', userId);
-    // Em um app real, seria ideal verificar se o usuário atual tem permissão para editar este usuário neste tenant.
     await updateDoc(userDocRef, { role });
 };
 
 export const deleteUser = async (tenantId: string, userId: string): Promise<void> => {
     if (!db) throw new Error("Firebase não configurado.");
     const userDocRef = doc(db, 'users', userId);
-    // Em um app real, seria ideal verificar as permissões.
     await deleteDoc(userDocRef);
 };
 
-// --- Branding & Settings Persistence ---
-
+// --- Original Firebase Branding & Settings Persistence ---
+/*
 export const getTenantBranding = async (tenantId: string): Promise<Partial<BrandingSettings> | null> => {
     if (!db) return null;
-    // Assuming tenant settings are stored in a 'tenants' collection or on the admin user.
-    // For this architecture where tenantId is often the admin UID, we check the user doc or a specific settings doc.
-    // Let's use a dedicated 'settings' collection for the tenant to be cleaner.
     const settingsDocRef = doc(db, 'settings', tenantId);
     const docSnap = await getDoc(settingsDocRef);
     
@@ -77,7 +76,6 @@ export const getTenantBranding = async (tenantId: string): Promise<Partial<Brand
         return docSnap.data() as Partial<BrandingSettings>;
     }
     
-    // Fallback: Try to get companyName from the user record if it's the first time
     const userDocRef = doc(db, 'users', tenantId);
     const userSnap = await getDoc(userDocRef);
     if (userSnap.exists()) {
@@ -93,13 +91,9 @@ export const getTenantBranding = async (tenantId: string): Promise<Partial<Brand
 export const updateTenantBranding = async (tenantId: string, settings: BrandingSettings): Promise<void> => {
     if (!db) throw new Error("Firebase não configurado.");
     const settingsDocRef = doc(db, 'settings', tenantId);
-    
-    // Merge true ensures we don't overwrite other settings if we add them later
     await setDoc(settingsDocRef, settings, { merge: true });
     
-    // Optional: Also update the user record for consistency if tenantId == uid
     const userDocRef = doc(db, 'users', tenantId);
-    await updateDoc(userDocRef, { companyName: settings.companyName }).catch(() => {
-        // Ignore error if user doc doesn't exist or permissions fail, main settings doc is priority
-    });
+    await updateDoc(userDocRef, { companyName: settings.companyName }).catch(() => {});
 };
+*/

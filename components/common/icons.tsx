@@ -1,5 +1,4 @@
 
-
 import React from 'react';
 
 export const SparklesIcon = (props: React.SVGProps<SVGSVGElement>) => (

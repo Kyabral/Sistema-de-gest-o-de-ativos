@@ -5,11 +5,17 @@ import MetricCard from '../components/common/MetricCard';
 import { FinancialOverviewChart, MaintenanceCostChart } from '../components/assets/AssetCharts';
 import AIAssistant from '../components/AIAssistant';
 import PredictionList from '../components/assets/PredictionList';
-import { WrenchScrewdriverIcon, BuildingOfficeIcon, BanknotesIcon, ReceiptPercentIcon, BriefcaseIcon, UserGroupIcon, PresentationChartLineIcon } from '../components/common/icons';
+import {
+    WrenchScrewdriverIcon, BuildingOfficeIcon, BanknotesIcon, ReceiptPercentIcon, 
+    BriefcaseIcon, UserGroupIcon, PresentationChartLineIcon
+} from '../components/common/icons';
 import { formatCurrency } from '../utils/formatters';
 import { useAuth } from '../hooks/useAuth';
 import { useBranding } from '../hooks/useBranding';
 import { AssetStatus, InvoiceStatus, ContractStatus } from '../types';
+import * as ds from '../styles/designSystem'; // Importando o Design System
+
+type Style = React.CSSProperties;
 
 const DashboardPage: React.FC = () => {
     const { 
@@ -47,54 +53,69 @@ const DashboardPage: React.FC = () => {
             salesPipeline
         };
     }, [assets, invoices, contracts, projects, employees, deals]);
+
+    const styles: { [key: string]: Style } = {
+        page: { padding: `${ds.spacing[4]} ${ds.spacing[8]}`, display: 'flex', flexDirection: 'column', gap: ds.spacing[8] },
+        header: { display: 'flex', justifyContent: 'space-between', alignItems: 'center' },
+        title: { fontSize: ds.typography.fontSizes['2xl'], fontWeight: ds.typography.fontWeights.bold, color: ds.colors.dark.text_primary },
+        subtitle: { color: ds.colors.dark.text_secondary, marginTop: ds.spacing[1] },
+        dateDisplay: { color: ds.colors.dark.text_secondary, backgroundColor: ds.colors.dark.card, padding: `${ds.spacing[2]} ${ds.spacing[4]}`, borderRadius: ds.borders.radius.md, fontSize: ds.typography.fontSizes.sm },
+        grid: { display: 'grid', gap: ds.spacing[6] },
+        gridCols4: { gridTemplateColumns: 'repeat(4, minmax(0, 1fr))' },
+        gridCols3: { gridTemplateColumns: 'repeat(3, minmax(0, 1fr))' },
+        gridCols1: { gridTemplateColumns: 'repeat(1, minmax(0, 1fr))' },
+        loadingContainer: { display: 'flex', justifyContent: 'center', alignItems: 'center', height: '256px' },
+        spinner: { width: ds.spacing[16], height: ds.spacing[16], borderTop: `2px solid ${ds.colors.primary.main}`, borderRight: `2px solid ${ds.colors.primary.main}`, borderBottom: '2px solid transparent', borderLeft: '2px solid transparent', borderRadius: '50%', animation: 'spin 1s linear infinite' },
+        error: { backgroundColor: ds.colors.error.light, borderLeft: `4px solid ${ds.colors.error.main}`, color: ds.colors.error.main, padding: ds.spacing[4] },
+        intelligenceSection: { display: 'grid', gridTemplateColumns: '2fr 1fr', gap: ds.spacing[6] },
+        chartsColumn: { display: 'flex', flexDirection: 'column', gap: ds.spacing[6] },
+        aiColumn: { display: 'flex', flexDirection: 'column', gap: ds.spacing[6] },
+    };
     
     return (
-        <div className="p-4 md:p-8 space-y-8">
-            <div className="flex flex-col md:flex-row justify-between items-center">
-                 <div>
-                    <h2 className="text-2xl font-bold text-gray-800 dark:text-white">
+        <div style={styles.page}>
+            <div style={styles.header}>
+                <div>
+                    <h2 style={styles.title}>
                         Bem-vindo, {user?.name?.split(' ')[0]}!
                     </h2>
-                    <p className="text-gray-500 dark:text-gray-400 mt-1">
+                    <p style={styles.subtitle}>
                         Visão executiva integrada da {branding.companyName}.
                     </p>
                 </div>
-                <div className="text-sm text-gray-500 dark:text-gray-400 bg-white dark:bg-gray-800 px-4 py-2 rounded-lg shadow-sm">
+                <div style={styles.dateDisplay}>
                     {new Date().toLocaleDateString('pt-BR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
                 </div>
             </div>
             
-             {error && <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4" role="alert"><p>{error}</p></div>}
+            {error && <div style={styles.error} role="alert"><p>{error}</p></div>}
             
             {isLoading ? (
-                 <div className="flex justify-center items-center h-64"><div className="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-primary-500"></div></div>
+                <div style={styles.loadingContainer}><div style={styles.spinner}></div></div>
             ) : (
                 <>
-                    {/* Financial & Strategic Row */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-                        <MetricCard title="Receita Mensal" value={formatCurrency(metrics.monthlyRevenue)} icon={<ReceiptPercentIcon className="w-6 h-6 text-white"/>} color="bg-emerald-500" />
-                        <MetricCard title="Custos Fixos" value={formatCurrency(metrics.fixedCosts)} icon={<BanknotesIcon className="w-6 h-6 text-white"/>} color="bg-rose-500" />
-                        <MetricCard title="Pipeline de Vendas" value={formatCurrency(metrics.salesPipeline)} icon={<PresentationChartLineIcon className="w-6 h-6 text-white"/>} color="bg-violet-500" />
-                        <MetricCard title="Patrimônio (Ativos)" value={formatCurrency(metrics.totalValue)} icon={<BuildingOfficeIcon className="w-6 h-6 text-white"/>} color="bg-blue-500" />
+                    {/* Linha Financeira e Estratégica */}
+                    <div style={{...styles.grid, ...styles.gridCols4}}>
+                        <MetricCard title="Receita Mensal" value={formatCurrency(metrics.monthlyRevenue)} icon={<ReceiptPercentIcon />} colorName="success" />
+                        <MetricCard title="Custos Fixos" value={formatCurrency(metrics.fixedCosts)} icon={<BanknotesIcon />} colorName="error" />
+                        <MetricCard title="Pipeline de Vendas" value={formatCurrency(metrics.salesPipeline)} icon={<PresentationChartLineIcon />} colorName="secondary" />
+                        <MetricCard title="Patrimônio (Ativos)" value={formatCurrency(metrics.totalValue)} icon={<BuildingOfficeIcon />} colorName="primary" />
                     </div>
 
-                    {/* Operational Row */}
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
-                         <MetricCard title="Projetos Ativos" value={metrics.activeProjects.toString()} icon={<BriefcaseIcon className="w-6 h-6 text-white"/>} color="bg-indigo-500" />
-                         <MetricCard title="Colaboradores" value={metrics.totalEmployees.toString()} icon={<UserGroupIcon className="w-6 h-6 text-white"/>} color="bg-cyan-500" />
-                         <MetricCard title="Em Manutenção" value={metrics.inRepairCount.toString()} icon={<WrenchScrewdriverIcon className="w-6 h-6 text-white"/>} color="bg-amber-500" />
+                    {/* Linha Operacional */}
+                    <div style={{...styles.grid, ...styles.gridCols3}}>
+                         <MetricCard title="Projetos Ativos" value={metrics.activeProjects.toString()} icon={<BriefcaseIcon />} colorName="warning" />
+                         <MetricCard title="Colaboradores" value={metrics.totalEmployees.toString()} icon={<UserGroupIcon />} colorName="neutral" />
+                         <MetricCard title="Em Manutenção" value={metrics.inRepairCount.toString()} icon={<WrenchScrewdriverIcon />} colorName="primary" />
                     </div>
 
-                    {/* Intelligence Section */}
-                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-full">
-                        <div className="lg:col-span-2 flex flex-col space-y-6">
-                             {/* Financial Chart */}
+                    {/* Seção de Inteligência */}
+                    <div style={styles.intelligenceSection}>
+                        <div style={styles.chartsColumn}>
                              <FinancialOverviewChart invoices={invoices} contracts={contracts} assets={assets} />
-                             {/* Maintenance Chart */}
                              <MaintenanceCostChart assets={assets} />
                         </div>
-                        <div className="flex flex-col space-y-6">
-                            {/* AI Tools */}
+                        <div style={styles.aiColumn}>
                             <PredictionList predictions={failurePredictions} />
                             <AIAssistant assets={assets} />
                         </div>

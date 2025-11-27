@@ -1,39 +1,99 @@
 
-import React from 'react';
+import React, { useMemo } from 'react';
+import * as ds from '../../styles/designSystem';
+
+type Style = React.CSSProperties;
 
 interface MetricCardProps {
   title: string;
   value: string;
   icon: React.ReactNode;
-  color: string; // Expecting classes like 'bg-blue-500'
+  colorName?: keyof typeof ds.colors; // ex: 'primary', 'success', 'error'
 }
 
-const MetricCard: React.FC<MetricCardProps> = ({ title, value, icon, color }) => {
-  // Extract color name to create light backgrounds (e.g., from 'bg-blue-500' extract 'blue')
-  const colorMatch = color.match(/bg-([a-z]+)-(\d+)/);
-  const baseColor = colorMatch ? colorMatch[1] : 'gray';
-  
+const MetricCard: React.FC<MetricCardProps> = ({ title, value, icon, colorName = 'primary' }) => {
+
+  const [isHovered, setIsHovered] = React.useState(false);
+
+  const colorTheme = ds.colors[colorName] || ds.colors.primary;
+
+  // Estilos dinâmicos baseados no Design System
+  const styles: { [key: string]: Style } = useMemo(() => ({
+    card: {
+      ...ds.componentStyles.card,
+      backgroundColor: ds.colors.dark.card,
+      padding: ds.spacing[6],
+      position: 'relative',
+      overflow: 'hidden',
+      border: `1px solid ${ds.colors.dark.border}`,
+      transition: 'transform 0.3s ease, box-shadow 0.3s ease',
+      transform: isHovered ? 'translateY(-5px)' : 'translateY(0)',
+      boxShadow: isHovered ? `0 10px 20px rgba(0,0,0,0.3)` : ds.shadows.dark_md,
+    },
+    content: {
+      display: 'flex',
+      justifyContent: 'space-between',
+      alignItems: 'flex-start',
+      position: 'relative',
+      zIndex: 2,
+    },
+    textContainer: {
+      display: 'flex', 
+      flexDirection: 'column', 
+      justifyContent: 'center',
+    },
+    title: {
+      fontSize: ds.typography.fontSizes.sm,
+      fontWeight: ds.typography.fontWeights.medium,
+      color: ds.colors.dark.text_secondary,
+      textTransform: 'uppercase',
+      letterSpacing: '0.05em',
+      marginBottom: ds.spacing[2],
+    },
+    value: {
+      fontSize: ds.typography.fontSizes['3xl'],
+      fontWeight: ds.typography.fontWeights.bold,
+      color: ds.colors.dark.text_primary,
+      lineHeight: 1.1,
+    },
+    iconWrapper: {
+      padding: ds.spacing[3],
+      borderRadius: ds.borders.radius.md,
+      backgroundColor: colorTheme.main,
+      color: colorTheme.contrastText || ds.colors.neutral[100],
+      boxShadow: `0 4px 12px ${colorTheme.main}40`,
+      transition: 'transform 0.3s ease, box-shadow 0.3s ease',
+      transform: isHovered ? 'scale(1.1)' : 'scale(1)',
+    },
+    backgroundGlow: {
+      position: 'absolute',
+      top: '-50%',
+      right: '-50%',
+      width: '200%',
+      height: '200%',
+      background: `radial-gradient(circle, ${colorTheme.main}1A 0%, transparent 40%)`,
+      transition: 'opacity 0.5s ease',
+      opacity: isHovered ? 1 : 0,
+      zIndex: 1,
+    },
+  }), [isHovered, colorTheme]);
+
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-soft hover:shadow-lg transition-all duration-300 p-6 border border-gray-100 dark:border-gray-700 group relative overflow-hidden">
-      <div className={`absolute top-0 right-0 w-24 h-24 bg-${baseColor}-50 dark:bg-${baseColor}-900/20 rounded-bl-full -mr-4 -mt-4 transition-transform group-hover:scale-110`}></div>
-      
-      <div className="relative flex items-start justify-between">
-        <div>
-          <p className="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1">{title}</p>
-          <h3 className="text-3xl font-bold text-gray-900 dark:text-white tracking-tight">{value}</h3>
+    <div 
+      style={styles.card}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+    >
+      <div style={styles.backgroundGlow} />
+      <div style={styles.content}>
+        <div style={styles.textContainer}>
+          <p style={styles.title}>{title}</p>
+          <h3 style={styles.value}>{value}</h3>
         </div>
-        <div className={`p-3 rounded-xl ${color} text-white shadow-md group-hover:scale-110 transition-transform duration-300`}>
-          {icon}
+        <div style={styles.iconWrapper}>
+          {React.cloneElement(icon as React.ReactElement, { style: { width: 24, height: 24 } })}
         </div>
       </div>
-      
-      {/* Optional: Add trend indicator here if data available */}
-      {/* <div className="mt-4 flex items-center text-sm">
-        <span className="text-green-500 font-medium flex items-center">
-           <ArrowUpIcon className="w-3 h-3 mr-1"/> 12%
-        </span>
-        <span className="text-gray-400 ml-2">vs mês anterior</span>
-      </div> */}
     </div>
   );
 };
